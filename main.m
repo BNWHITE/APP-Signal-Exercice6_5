@@ -10,7 +10,7 @@
 %
 % DESCRIPTION :
 %   Script principal — lance l'exercice 6.5 sur le
-%   sous-échantillonnage et le filtre anti-repliement.
+%   sous-echantillonnage et le filtre anti-repliement.
 %
 % ENTREES :
 %      Aucune (script autonome)
@@ -22,12 +22,15 @@
 %   Aucune
 % #------------------------------------------
 
-clear all; close all; clc;
+clear all; close all;
+clc;
 
 % Ajouter les sous-dossiers au path MATLAB
 rootDir = fileparts(mfilename('fullpath'));
+addpath(fullfile(rootDir, 'fonctions'));
 addpath(fullfile(rootDir, 'scripts'));
 addpath(fullfile(rootDir, 'data'));
+addpath(fullfile(rootDir, 'tests'));
 
 % Lancer l'exercice
 exercice_6_5;

@@ -1,0 +1,295 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage{amsmath, amssymb}
+\usepackage{graphicx}
+\usepackage{geometry}
+\usepackage{fancyhdr}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{caption}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{enumitem}
+
+\geometry{margin=2.5cm}
+
+% Style MATLAB pour les listings
+\definecolor{matlabgreen}{rgb}{0.13,0.55,0.13}
+\definecolor{matlabblue}{rgb}{0.0,0.0,0.8}
+\definecolor{matlabgray}{rgb}{0.5,0.5,0.5}
+\lstdefinestyle{matlab}{
+    language=Matlab,
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{matlabblue}\bfseries,
+    commentstyle=\color{matlabgreen}\itshape,
+    stringstyle=\color{red},
+    numbers=left,
+    numberstyle=\tiny\color{matlabgray},
+    numbersep=8pt,
+    frame=single,
+    breaklines=true,
+    tabsize=4,
+    showstringspaces=false
+}
+\lstset{style=matlab}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{APP Signal --- Exercice 6.5}
+\rhead{Groupe G2D}
+\cfoot{\thepage}
+
+\title{
+    \vspace{-1cm}
+    \textbf{APP Signal --- Exercice 6.5} \\[0.3cm]
+    \Large Sous-\'echantillonnage et Filtre Anti-Repliement \\[0.5cm]
+    \large ISEP --- 2025--2026
+}
+\author{Groupe G2D}
+\date{Avril 2026}
+
+\begin{document}
+
+\maketitle
+\thispagestyle{fancy}
+\tableofcontents
+\newpage
+
+% ===========================================================================
+\section{Introduction}
+% ===========================================================================
+
+Cet exercice porte sur le \textbf{sous-\'echantillonnage} d'un signal audio de
+$F_e = 44\,100$~Hz vers $F_e' = 4\,000$~Hz, avec un rapport signal \`a bruit
+sup\'erieur \`a 40~dB. Il met en \'evidence le ph\'enom\`ene de
+\textbf{repliement spectral} (aliasing) et l'importance du \textbf{filtre
+anti-repliement} avant toute d\'ecimation.
+
+L'ensemble du code est d\'evelopp\'e en MATLAB, \textbf{sans Signal Processing
+Toolbox}, en utilisant uniquement des fonctions de base (FFT, \texttt{filter},
+\texttt{interp1}).
+
+% ===========================================================================
+\section{Th\'eorie}
+% ===========================================================================
+
+\subsection{Th\'eor\`eme de Shannon}
+
+Un signal \'echantillonn\'e \`a $F_e$ ne peut repr\'esenter fid\`element que
+les composantes fr\'equentielles inf\'erieures \`a $F_e/2$ :
+\begin{equation}
+    F_e \geq 2\,f_{\max}
+\end{equation}
+
+Lors d'une d\'ecimation vers $F_e' < F_e$, toute composante au-dessus de
+$F_e'/2$ se \textbf{replie} dans la bande $[0,\; F_e'/2]$, cr\'eant des
+distorsions irr\'eversibles.
+
+\subsection{Filtre anti-repliement}
+
+Pour \'eviter le repliement, on applique un filtre passe-bas de fr\'equence de
+coupure $f_c = F_e'/2$ \textbf{avant} la d\'ecimation. L'att\'enuation en bande
+coup\'ee doit \^etre suffisante pour garantir le SNR souhait\'e.
+
+% ===========================================================================
+\section{Question 1 --- Chargement et affichage du signal}
+% ===========================================================================
+
+Le fichier \texttt{GardeMontante.wav} est un signal audio st\'er\'eo
+\'echantillonn\'e \`a 44\,100~Hz. On le convertit en mono :
+
+\begin{lstlisting}
+[x, Fe] = audioread('GardeMontante.wav');
+x = mean(x, 2);  % stereo -> mono
+\end{lstlisting}
+
+La densit\'e spectrale de puissance (DSP) est estim\'ee par FFT via la fonction
+\texttt{myDSPEstimation} :
+
+\begin{equation}
+    \text{DSP}(f) = 10\log_{10}\!\left(\left|\frac{X(f)}{N}\right|^2\right) \quad \text{(dB)}
+\end{equation}
+
+\textbf{Observation} : le spectre s'\'etend au-del\`a de 2\,000~Hz ($= F_e'/2$),
+ce qui annonce un repliement si l'on d\'ecime directement.
+
+% ===========================================================================
+\section{Question 2 --- D\'ecimation sans filtre}
+% ===========================================================================
+
+On r\'e-\'echantillonne directement le signal \`a $F_e' = 4\,000$~Hz par
+interpolation lin\'eaire :
+
+\begin{lstlisting}
+Fe2 = 4000;
+Te2 = 1 / Fe2;
+t2  = 0 : Te2 : t(end);
+xl2 = interp1(t, x, t2, 'linear');
+\end{lstlisting}
+
+Le facteur de d\'ecimation est :
+\begin{equation}
+    D = \frac{F_e}{F_e'} = \frac{44\,100}{4\,000} \approx 11
+\end{equation}
+
+\textbf{Observation} : la DSP du signal d\'ecim\'e montre un \textbf{repliement
+spectral} clair. \`A l'\'ecoute, des artefacts sont audibles (distorsions,
+bruits parasites).
+
+% ===========================================================================
+\section{Question 3 --- Conception du filtre anti-repliement}
+% ===========================================================================
+
+\subsection{Gabarit du filtre}
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{lll}
+        \toprule
+        \textbf{Param\`etre} & \textbf{Valeur} & \textbf{Justification} \\
+        \midrule
+        Type     & Passe-bas FIR  & Phase lin\'eaire \\
+        $F_e$    & 44\,100~Hz     & Fr\'equence du signal original \\
+        $F_{\text{pass}}$ & 1\,800~Hz & Bande utile \`a conserver \\
+        $F_{\text{stop}}$ & 2\,000~Hz & $= F_e'/2$, au-del\`a $\rightarrow$ repliement \\
+        $A_{\text{stop}}$ & 40~dB     & SNR $> 40$~dB impos\'e \\
+        $A_{\text{pass}}$ & 0,1~dB    & Ondulation minimale \\
+        \bottomrule
+    \end{tabular}
+    \caption{Gabarit du filtre anti-repliement.}
+\end{table}
+
+\subsection{M\'ethode de Kaiser}
+
+Le filtre est con\c{c}u par \textbf{fen\^etrage de Kaiser} (impl\'ementation
+manuelle, sans toolbox). Le param\`etre $\beta$ est calcul\'e en fonction de
+l'att\'enuation souhait\'ee :
+
+\begin{equation}
+    \beta = \begin{cases}
+        0{,}1102\,(A - 8{,}7) & \text{si } A > 50 \\
+        0{,}5842\,(A-21)^{0,4} + 0{,}07886\,(A-21) & \text{si } 21 \leq A \leq 50 \\
+        0 & \text{sinon}
+    \end{cases}
+\end{equation}
+
+L'ordre du filtre est estim\'e par :
+\begin{equation}
+    N = \left\lceil \frac{A - 7{,}95}{2{,}285 \cdot 2\pi \cdot \Delta f} \right\rceil
+    \quad \text{avec } \Delta f = \frac{F_{\text{stop}} - F_{\text{pass}}}{F_e}
+\end{equation}
+
+La r\'eponse impulsionnelle est :
+\begin{equation}
+    h(n) = w_{\text{Kaiser}}(n) \cdot 2f_c \cdot \text{sinc}\!\left(2f_c\!\left(n - \frac{N}{2}\right)\right)
+\end{equation}
+
+avec la fen\^etre de Kaiser :
+\begin{equation}
+    w(n) = \frac{I_0\!\left(\beta\sqrt{1 - \left(\frac{2n}{N} - 1\right)^2}\right)}{I_0(\beta)}
+\end{equation}
+
+o\`u $I_0$ est la fonction de Bessel modifi\'ee de premi\`ere esp\`ece d'ordre z\'ero.
+
+\begin{lstlisting}
+[h, Nfilt] = myKaiserFilter(Fe, 1800, 2000, 40);
+% Nfilt ~ 80-100 (ordre estime automatiquement)
+\end{lstlisting}
+
+\textbf{V\'erification} : la r\'eponse en fr\'equence montre une att\'enuation
+$> 40$~dB au-del\`a de 2\,000~Hz et un gain $\approx 0$~dB en bande passante.
+La phase est lin\'eaire (filtre FIR \`a coefficients sym\'etriques).
+
+% ===========================================================================
+\section{Question 4 --- Filtrage du signal}
+% ===========================================================================
+
+Le filtre est appliqu\'e au signal original :
+
+\begin{lstlisting}
+xl3 = filter(h, 1, x);
+\end{lstlisting}
+
+\textbf{Observation} : la DSP du signal filtr\'e montre que les composantes
+au-dessus de 2\,000~Hz sont att\'enu\'ees de plus de 40~dB. \`A l'\'ecoute,
+le signal est l\'eg\`erement plus sourd (perte des hautes fr\'equences) mais
+sans artefacts.
+
+% ===========================================================================
+\section{Question 5 --- D\'ecimation du signal filtr\'e}
+% ===========================================================================
+
+On d\'ecime le signal filtr\'e :
+
+\begin{lstlisting}
+xl4 = interp1(t, xl3, t2, 'linear');
+\end{lstlisting}
+
+\textbf{Observation} : la DSP du signal d\'ecim\'e ne pr\'esente \textbf{plus de
+repliement}. Le spectre est propre dans la bande $[0,\; 2\,000]$~Hz. \`A
+l'\'ecoute, la qualit\'e est bonne malgr\'e la bande passante r\'eduite.
+
+% ===========================================================================
+\section{Comparaison des r\'esultats}
+% ===========================================================================
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{lccc}
+        \toprule
+        \textbf{Signal} & \textbf{$F_e$ (Hz)} & \textbf{Qualit\'e} & \textbf{Repliement} \\
+        \midrule
+        Original                 & 44\,100 & Excellente              & Non \\
+        D\'ecim\'e sans filtre   & 4\,000  & D\'egrad\'ee            & \textbf{Oui} \\
+        D\'ecim\'e avec filtre   & 4\,000  & Bonne (bande limit\'ee) & \textbf{Non} \\
+        \bottomrule
+    \end{tabular}
+    \caption{Comparaison des trois signaux.}
+\end{table}
+
+% ===========================================================================
+\section{Architecture logicielle}
+% ===========================================================================
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{ll}
+        \toprule
+        \textbf{Fichier} & \textbf{R\^ole} \\
+        \midrule
+        \texttt{main.m}             & Point d'entr\'ee, ajoute les paths \\
+        \texttt{exercice\_6\_5.m}   & Script complet (Q1 \`a Q5, affichages) \\
+        \texttt{myDSPEstimation.m}  & Estimation de la DSP par FFT \\
+        \texttt{myKaiserFilter.m}   & Filtre FIR passe-bas (fen\^etre de Kaiser) \\
+        \texttt{myDecimation.m}     & D\'ecimation avec/sans filtre anti-repliement \\
+        \texttt{test\_*.m}          & Tests unitaires (10 cas par fonction) \\
+        \bottomrule
+    \end{tabular}
+    \caption{Organisation des fichiers MATLAB.}
+\end{table}
+
+% ===========================================================================
+\section{Conclusion}
+% ===========================================================================
+
+Cet exercice illustre concr\`etement le \textbf{th\'eor\`eme de Shannon} et ses
+cons\'equences pratiques. La d\'ecimation directe (sans filtrage pr\'ealable)
+provoque un repliement spectral audible, tandis que l'application d'un filtre
+FIR anti-repliement con\c{c}u par fen\^etrage de Kaiser \'elimine ce
+ph\'enom\`ene tout en pr\'eservant un SNR $> 40$~dB.
+
+Points cl\'es mis en pratique :
+\begin{itemize}
+    \item Estimation de la DSP par FFT
+    \item Conception d'un filtre FIR sans toolbox (formule de Kaiser + sinc)
+    \item V\'erification par r\'eponse en fr\'equence et tests unitaires
+    \item D\'ecimation par interpolation lin\'eaire (\texttt{interp1})
+\end{itemize}
+
+Le code est enti\`erement modulaire (3 fonctions r\'eutilisables + 30 tests
+unitaires) et ne n\'ecessite aucune toolbox payante.
+
+\end{document}

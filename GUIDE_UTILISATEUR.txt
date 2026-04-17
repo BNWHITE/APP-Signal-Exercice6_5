@@ -1,0 +1,103 @@
+================================================================================
+       GUIDE UTILISATEUR — Exercice 6.5
+       Sous-echantillonnage et Filtre Anti-Repliement
+       APP Signal — ISEP 2025-2026 — Groupe G2D
+================================================================================
+
+1. PREREQUIS
+   - MATLAB R2020a ou plus recent
+   - Aucune toolbox requise (pas de Signal Processing Toolbox)
+   - Les fichiers audio GardeMontante.wav et RavelSi.wav (dossier data/)
+
+2. STRUCTURE DU PROJET
+
+   APP-Signal-Exercice6_5/
+   ├── main.m                          Script principal (point d'entree)
+   ├── filtre_anti_repliement.mat      Coefficients du filtre sauvegardes
+   ├── Rendu_Exercice.md               Rendu detaille (questions/reponses)
+   ├── GUIDE_UTILISATEUR.txt           Ce fichier
+   ├── README.md                       Description du projet
+   │
+   ├── fonctions/                      Fonctions MATLAB reutilisables
+   │   ├── myDSPEstimation.m           Estimation de la DSP par FFT
+   │   ├── myKaiserFilter.m            Filtre FIR passe-bas (fenetrage Kaiser)
+   │   └── myDecimation.m              Decimation avec/sans filtre
+   │
+   ├── scripts/
+   │   └── exercice_6_5.m              Script complet (Q1 a Q5)
+   │
+   ├── tests/                          Tests unitaires (10 tests par fonction)
+   │   ├── test_myDSPEstimation.m
+   │   ├── test_myKaiserFilter.m
+   │   └── test_myDecimation.m
+   │
+   ├── data/                           Signaux audio
+   │   ├── GardeMontante.wav
+   │   └── RavelSi.wav
+   │
+   ├── docs/                           Documentation de reference
+   │   ├── APP-A1Composante-Signal-2025-2026 - V3.pdf
+   │   └── QuestionW4_A.m              Template original du prof
+   │
+   └── rapport/
+       └── rapport_Exercice6_5.tex     Rapport LaTeX
+
+3. LANCEMENT RAPIDE
+
+   a) Ouvrir MATLAB
+   b) Naviguer vers le dossier du projet :
+      >> cd('/chemin/vers/APP-Signal-Exercice6_5')
+   c) Executer le script principal :
+      >> main
+   d) Les figures s'affichent automatiquement :
+      - Figure 1 : 4 sous-figures (signal original, decime sans filtre,
+        filtre, decime avec filtre) en temps et frequence
+      - Figure 2 : Reponse en frequence du filtre anti-repliement
+
+4. LANCER LES TESTS UNITAIRES
+
+   >> cd('/chemin/vers/APP-Signal-Exercice6_5')
+   >> main          % pour ajouter les paths
+   >> test_myDSPEstimation
+   >> test_myKaiserFilter
+   >> test_myDecimation
+
+   Chaque fichier de test lance 10 cas et affiche PASS/FAIL.
+
+5. ECOUTER LES SIGNAUX
+
+   Dans exercice_6_5.m, decommentez les lignes "sound()" :
+   - sound(x, Fe)    → signal original (44100 Hz)
+   - sound(xl2, Fe2) → decime SANS filtre (repliement audible)
+   - sound(xl4, Fe2) → decime AVEC filtre (qualite preservee)
+
+6. CHANGER DE SIGNAL AUDIO
+
+   Dans exercice_6_5.m, ligne ~30 :
+   - [x, Fe] = audioread('GardeMontante.wav');   % par defaut
+   - [x, Fe] = audioread('RavelSi.wav');         % decommenter pour tester
+
+7. DESCRIPTION DES FONCTIONS
+
+   myDSPEstimation(x, Fe, [])
+     Entrees : signal x, frequence Fe
+     Sorties : axe frequentiel f, module FFT xfm, DSP en dB dsp_db
+
+   myKaiserFilter(Fe, Fpass, Fstop, Astop)
+     Entrees : Fe=44100, Fpass=1800, Fstop=2000, Astop=40
+     Sorties : coefficients h, ordre Nfilt
+     Methode : fenetrage de Kaiser (sinc * fenetre), pas de toolbox
+
+   myDecimation(x, Fe, Fe2, h)
+     Entrees : signal x, Fe originale, Fe2 cible, filtre h (ou [] si aucun)
+     Sorties : signal decime y, vecteur temps t2
+
+8. RESUME DE L'EXERCICE
+
+   Q1 : Chargement WAV stereo → mono, affichage temps + DSP
+   Q2 : Decimation 44100 → 4000 Hz SANS filtre → repliement spectral
+   Q3 : Conception filtre FIR passe-bas (Kaiser, Fpass=1800, Fstop=2000, 40 dB)
+   Q4 : Filtrage du signal → composantes > 2 kHz attenuees de 40 dB
+   Q5 : Decimation du signal filtre → pas de repliement, qualite preservee
+
+================================================================================
